@@ -94,7 +94,21 @@ pub async fn run() -> anyhow::Result<()> {
 
     link_progress.finish_with_message("Linked");
 
-    // 5. Write lockfile
+    // 5. Run lifecycle scripts
+    let script_progress = ProgressBar::new_spinner();
+    script_progress.set_style(
+        ProgressStyle::with_template("{spinner:.green} {msg}")
+            .unwrap()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+    );
+    script_progress.set_message("Running lifecycle scripts...");
+    script_progress.enable_steady_tick(std::time::Duration::from_millis(80));
+
+    alchemy_linker::run_lifecycle_scripts(&project_dir, &resolution)?;
+
+    script_progress.finish_with_message("Lifecycle scripts complete");
+
+    // 6. Write lockfile
     let lockfile = Lockfile::from_resolution(
         &resolution,
         &manifest.dependencies,

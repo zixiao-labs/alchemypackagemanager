@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use alchemy_core::dependency::PackageId;
+use alchemy_core::manifest::BinField;
 use alchemy_core::resolver::ResolutionResult;
 
 use crate::hardlink;
@@ -103,6 +104,63 @@ pub fn link_packages(
 
         info!("Linking {} → {}", link_path.display(), target.display());
         symlink::create_symlink(&target, &link_path)?;
+    }
+
+    // Step 4: Create node_modules/.bin/ symlinks for packages with bin fields
+    let bin_dir = node_modules.join(".bin");
+    let mut has_bins = false;
+
+    for (id, pkg) in &resolution.packages {
+        let bin_entries = match &pkg.bin {
+            Some(BinField::Path(path)) => {
+                // Single binary — name is the package name without scope
+                let bin_name = id.name.rsplit('/').next().unwrap_or(&id.name);
+                vec![(bin_name.to_string(), path.clone())]
+            }
+            Some(BinField::Map(map)) => {
+                map.iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect()
+            }
+            None => continue,
+        };
+
+        if !has_bins {
+            std::fs::create_dir_all(&bin_dir)?;
+            has_bins = true;
+        }
+
+        for (bin_name, bin_path) in bin_entries {
+            let target = pnpm_dir
+                .join(id.pnpm_dir_name())
+                .join("node_modules")
+                .join(&id.name)
+                .join(&bin_path);
+
+            let link_path = bin_dir.join(&bin_name);
+
+            debug!("Bin link {} → {}", link_path.display(), target.display());
+            symlink::create_symlink(&target, &link_path)?;
+
+            // Make the target executable on Unix
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(metadata) = std::fs::metadata(&target) {
+                    let mut perms = metadata.permissions();
+                    let mode = perms.mode();
+                    // Add execute bits where there are read bits
+                    perms.set_mode(mode | ((mode & 0o444) >> 2));
+                    if let Err(e) = std::fs::set_permissions(&target, perms) {
+                        warn!("Failed to chmod +x {}: {}", target.display(), e);
+                    }
+                }
+            }
+        }
+    }
+
+    if has_bins {
+        info!("Linked bin entries to {}", bin_dir.display());
     }
 
     Ok(())
