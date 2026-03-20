@@ -35,7 +35,7 @@ pub fn link_packages(
     std::fs::create_dir_all(&pnpm_dir)?;
 
     // Step 1: Create .pnpm virtual store — hardlink each package from the global store
-    for (id, _pkg) in &resolution.packages {
+    for id in resolution.packages.keys() {
         let pkg_pnpm_dir = pnpm_dir
             .join(id.pnpm_dir_name())
             .join("node_modules")
