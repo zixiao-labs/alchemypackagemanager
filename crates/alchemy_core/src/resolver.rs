@@ -16,10 +16,7 @@ pub struct ResolutionResult {
 #[async_trait::async_trait]
 pub trait MetadataFetcher: Send + Sync {
     /// Fetch all available versions for a package with their metadata
-    async fn fetch_versions(
-        &self,
-        name: &str,
-    ) -> AlchemyResult<Vec<VersionInfo>>;
+    async fn fetch_versions(&self, name: &str) -> AlchemyResult<Vec<VersionInfo>>;
 }
 
 /// Info about a single version of a package from the registry
@@ -87,65 +84,66 @@ impl<F: MetadataFetcher> Resolver<F> {
         packages: &'a mut HashMap<PackageId, ResolvedPackage>,
         resolved_versions: &'a mut HashMap<String, String>,
         visiting: &'a mut HashSet<String>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = AlchemyResult<PackageId>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = AlchemyResult<PackageId>> + Send + 'a>>
+    {
         Box::pin(async move {
-        // If already resolved and satisfies, reuse
-        if let Some(existing_version) = resolved_versions.get(name) {
-            if version_satisfies(existing_version, version_req) {
-                return Ok(PackageId::new(name, existing_version));
+            // If already resolved and satisfies, reuse
+            if let Some(existing_version) = resolved_versions.get(name) {
+                if version_satisfies(existing_version, version_req) {
+                    return Ok(PackageId::new(name, existing_version));
+                }
             }
-        }
 
-        // Cycle detection
-        if visiting.contains(name) {
-            let id = resolved_versions
-                .get(name)
-                .map(|v| PackageId::new(name, v))
-                .unwrap_or_else(|| PackageId::new(name, "0.0.0"));
-            return Ok(id);
-        }
-        visiting.insert(name.to_string());
+            // Cycle detection
+            if visiting.contains(name) {
+                let id = resolved_versions
+                    .get(name)
+                    .map(|v| PackageId::new(name, v))
+                    .unwrap_or_else(|| PackageId::new(name, "0.0.0"));
+                return Ok(id);
+            }
+            visiting.insert(name.to_string());
 
-        // Fetch versions
-        let versions = self.get_versions(name).await?;
+            // Fetch versions
+            let versions = self.get_versions(name).await?;
 
-        // Pick highest version satisfying the constraint
-        let chosen = pick_best_version(&versions, version_req).ok_or_else(|| {
-            AlchemyError::VersionNotFound(name.to_string(), version_req.to_string())
-        })?;
+            // Pick highest version satisfying the constraint
+            let chosen = pick_best_version(&versions, version_req).ok_or_else(|| {
+                AlchemyError::VersionNotFound(name.to_string(), version_req.to_string())
+            })?;
 
-        let id = PackageId::new(name, &chosen.version);
-        graph.add_package(id.clone());
-        resolved_versions.insert(name.to_string(), chosen.version.clone());
+            let id = PackageId::new(name, &chosen.version);
+            graph.add_package(id.clone());
+            resolved_versions.insert(name.to_string(), chosen.version.clone());
 
-        let resolved = ResolvedPackage {
-            id: id.clone(),
-            tarball_url: chosen.tarball_url.clone(),
-            integrity: chosen.integrity.clone(),
-            dependencies: chosen.dependencies.clone(),
-            bin: chosen.bin.clone(),
-        };
-        packages.insert(id.clone(), resolved);
+            let resolved = ResolvedPackage {
+                id: id.clone(),
+                tarball_url: chosen.tarball_url.clone(),
+                integrity: chosen.integrity.clone(),
+                dependencies: chosen.dependencies.clone(),
+                bin: chosen.bin.clone(),
+            };
+            packages.insert(id.clone(), resolved);
 
-        // Recursively resolve transitive deps
-        let child_deps = chosen.dependencies.clone();
-        for (dep_name, dep_req) in &child_deps {
-            let child_id = self
-                .resolve_package(
-                    dep_name,
-                    dep_req,
-                    graph,
-                    packages,
-                    resolved_versions,
-                    visiting,
-                )
-                .await?;
-            graph.add_package(child_id.clone());
-            graph.add_dependency(&id, &child_id);
-        }
+            // Recursively resolve transitive deps
+            let child_deps = chosen.dependencies.clone();
+            for (dep_name, dep_req) in &child_deps {
+                let child_id = self
+                    .resolve_package(
+                        dep_name,
+                        dep_req,
+                        graph,
+                        packages,
+                        resolved_versions,
+                        visiting,
+                    )
+                    .await?;
+                graph.add_package(child_id.clone());
+                graph.add_dependency(&id, &child_id);
+            }
 
-        visiting.remove(name);
-        Ok(id)
+            visiting.remove(name);
+            Ok(id)
         })
     }
 

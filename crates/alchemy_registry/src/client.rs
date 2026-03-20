@@ -24,9 +24,7 @@ pub struct RegistryClient {
 
 impl RegistryClient {
     pub fn new() -> anyhow::Result<Self> {
-        let client = Client::builder()
-            .use_rustls_tls()
-            .build()?;
+        let client = Client::builder().use_rustls_tls().build()?;
 
         Ok(Self {
             client,
@@ -36,10 +34,7 @@ impl RegistryClient {
     }
 
     /// Fetch abbreviated metadata for a package
-    pub async fn fetch_package_metadata(
-        &self,
-        name: &str,
-    ) -> AlchemyResult<PackageMetadata> {
+    pub async fn fetch_package_metadata(&self, name: &str) -> AlchemyResult<PackageMetadata> {
         let _permit = self.semaphore.acquire().await.unwrap();
 
         // Encode scoped package names: @scope/name → @scope%2fname
@@ -55,10 +50,7 @@ impl RegistryClient {
         let response = self
             .client
             .get(&url)
-            .header(
-                "Accept",
-                "application/vnd.npm.install-v1+json",
-            )
+            .header("Accept", "application/vnd.npm.install-v1+json")
             .send()
             .await
             .map_err(|e| AlchemyError::Network(format!("{}: {}", name, e)))?;
@@ -94,13 +86,7 @@ impl RegistryClient {
 
         info!("Downloading {}...", id);
 
-        let bytes = self
-            .client
-            .get(tarball_url)
-            .send()
-            .await?
-            .bytes()
-            .await?;
+        let bytes = self.client.get(tarball_url).send().await?.bytes().await?;
 
         tarball::extract_tarball(&bytes, dest)?;
 
@@ -110,10 +96,7 @@ impl RegistryClient {
 
 #[async_trait::async_trait]
 impl MetadataFetcher for RegistryClient {
-    async fn fetch_versions(
-        &self,
-        name: &str,
-    ) -> AlchemyResult<Vec<VersionInfo>> {
+    async fn fetch_versions(&self, name: &str) -> AlchemyResult<Vec<VersionInfo>> {
         let metadata = self.fetch_package_metadata(name).await?;
 
         let versions: Vec<VersionInfo> = metadata

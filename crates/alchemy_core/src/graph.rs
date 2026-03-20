@@ -37,10 +37,7 @@ impl DependencyGraph {
     /// Get all direct dependencies of a package
     pub fn dependencies_of(&self, id: &PackageId) -> Vec<&PackageId> {
         if let Some(&idx) = self.index_map.get(id) {
-            self.graph
-                .neighbors(idx)
-                .map(|n| &self.graph[n])
-                .collect()
+            self.graph.neighbors(idx).map(|n| &self.graph[n]).collect()
         } else {
             vec![]
         }

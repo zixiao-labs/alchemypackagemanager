@@ -12,9 +12,15 @@ pub fn extract_tarball(tarball_bytes: &[u8], dest: &Path) -> anyhow::Result<()> 
     let gz = GzDecoder::new(tarball_bytes);
     let mut archive = Archive::new(gz);
 
-    for entry in archive.entries().context("failed to read tarball entries")? {
+    for entry in archive
+        .entries()
+        .context("failed to read tarball entries")?
+    {
         let mut entry = entry.context("failed to read tarball entry")?;
-        let path = entry.path().context("failed to get entry path")?.into_owned();
+        let path = entry
+            .path()
+            .context("failed to get entry path")?
+            .into_owned();
 
         // Strip the leading `package/` directory that npm tarballs use
         let relative = path
@@ -33,9 +39,9 @@ pub fn extract_tarball(tarball_bytes: &[u8], dest: &Path) -> anyhow::Result<()> 
             std::fs::create_dir_all(parent)?;
         }
 
-        entry.unpack(&target).with_context(|| {
-            format!("failed to unpack {}", relative.display())
-        })?;
+        entry
+            .unpack(&target)
+            .with_context(|| format!("failed to unpack {}", relative.display()))?;
     }
 
     Ok(())

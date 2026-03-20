@@ -27,10 +27,7 @@ pub async fn run() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!(
-        "Installing {} dependencies...",
-        all_deps.len()
-    );
+    println!("Installing {} dependencies...", all_deps.len());
 
     // 2. Resolve dependencies
     let client = RegistryClient::new()?;
@@ -47,10 +44,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     let resolution = resolver.resolve(&all_deps).await?;
 
-    progress.finish_with_message(format!(
-        "Resolved {} packages",
-        resolution.packages.len()
-    ));
+    progress.finish_with_message(format!("Resolved {} packages", resolution.packages.len()));
 
     // 3. Download missing packages to content store
     let store = ContentStore::new();
@@ -65,11 +59,9 @@ pub async fn run() -> anyhow::Result<()> {
     if !to_download.is_empty() {
         let download_bar = ProgressBar::new(to_download.len() as u64);
         download_bar.set_style(
-            ProgressStyle::with_template(
-                "{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}",
-            )
-            .unwrap()
-            .progress_chars("█▓░"),
+            ProgressStyle::with_template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+                .unwrap()
+                .progress_chars("█▓░"),
         );
 
         for id in &to_download {
@@ -98,11 +90,7 @@ pub async fn run() -> anyhow::Result<()> {
     link_progress.set_message("Linking packages...");
     link_progress.enable_steady_tick(std::time::Duration::from_millis(80));
 
-    alchemy_linker::link_packages(
-        &project_dir,
-        &resolution,
-        store.base_dir(),
-    )?;
+    alchemy_linker::link_packages(&project_dir, &resolution, store.base_dir())?;
 
     link_progress.finish_with_message("Linked");
 

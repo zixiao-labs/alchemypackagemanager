@@ -51,15 +51,17 @@ pub fn link_packages(
             );
         }
 
-        debug!("Hardlinking {} → {}", store_pkg_dir.display(), pkg_pnpm_dir.display());
+        debug!(
+            "Hardlinking {} → {}",
+            store_pkg_dir.display(),
+            pkg_pnpm_dir.display()
+        );
         hardlink::hardlink_dir(&store_pkg_dir, &pkg_pnpm_dir)?;
     }
 
     // Step 2: Create symlinks for transitive dependencies within .pnpm
     for (id, pkg) in &resolution.packages {
-        let pkg_node_modules = pnpm_dir
-            .join(id.pnpm_dir_name())
-            .join("node_modules");
+        let pkg_node_modules = pnpm_dir.join(id.pnpm_dir_name()).join("node_modules");
 
         for (dep_name, dep_version) in &pkg.dependencies {
             // Find the resolved version of this dependency
@@ -73,7 +75,11 @@ pub fn link_packages(
                     .join(dep_name);
 
                 if !symlink_path.exists() {
-                    debug!("Symlinking dep {} → {}", symlink_path.display(), target.display());
+                    debug!(
+                        "Symlinking dep {} → {}",
+                        symlink_path.display(),
+                        target.display()
+                    );
                     symlink::create_symlink(&target, &symlink_path)?;
                 }
             }

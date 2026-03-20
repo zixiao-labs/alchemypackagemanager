@@ -3,7 +3,11 @@ mod commands;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "alchemy", version, about = "A fast npm package manager written in Rust")]
+#[command(
+    name = "alchemy",
+    version,
+    about = "A fast npm package manager written in Rust"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

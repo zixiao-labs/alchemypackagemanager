@@ -79,9 +79,7 @@ impl Lockfile {
             };
 
             if root_dev_deps.contains_key(&id.name) {
-                importer
-                    .dev_dependencies
-                    .insert(id.name.clone(), dep_ref);
+                importer.dev_dependencies.insert(id.name.clone(), dep_ref);
             } else {
                 importer.dependencies.insert(id.name.clone(), dep_ref);
             }
