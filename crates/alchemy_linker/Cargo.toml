@@ -1,0 +1,11 @@
+[package]
+name = "alchemy_linker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alchemy_core = { path = "../alchemy_core" }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }

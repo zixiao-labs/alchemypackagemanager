@@ -1,0 +1,16 @@
+[package]
+name = "alchemy_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+node-semver = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+petgraph = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+async-trait = "0.1"

@@ -1,0 +1,28 @@
+[workspace]
+members = [
+    "crates/alchemy_cli",
+    "crates/alchemy_core",
+    "crates/alchemy_registry",
+    "crates/alchemy_store",
+    "crates/alchemy_linker",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+node-semver = "2"
+sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
+clap = { version = "4", features = ["derive"] }
+indicatif = "0.17"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+petgraph = "0.7"
+futures = "0.3"

@@ -1,0 +1,22 @@
+[package]
+name = "alchemy_cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "alchemy"
+path = "src/main.rs"
+
+[dependencies]
+alchemy_core = { path = "../alchemy_core" }
+alchemy_registry = { path = "../alchemy_registry" }
+alchemy_store = { path = "../alchemy_store" }
+alchemy_linker = { path = "../alchemy_linker" }
+tokio = { workspace = true }
+clap = { workspace = true }
+indicatif = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }
+tempfile = "3"
