@@ -126,11 +126,7 @@ pub fn link_packages(
                 let bin_name = id.name.rsplit('/').next().unwrap_or(&id.name);
                 vec![(bin_name.to_string(), path.clone())]
             }
-            Some(BinField::Map(map)) => {
-                map.iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect()
-            }
+            Some(BinField::Map(map)) => map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
             None => continue,
         };
 

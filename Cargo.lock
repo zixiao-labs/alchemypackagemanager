@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alchemy_core",
  "alchemy_linker",
@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -53,7 +53,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_linker"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alchemy_core",
  "anyhow",
@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_registry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alchemy_core",
  "anyhow",
@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "sha2",
