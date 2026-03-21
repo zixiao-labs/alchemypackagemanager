@@ -17,9 +17,11 @@ impl PackageId {
         }
     }
 
-    /// Format as "name@version" used in .pnpm directory layout
+    /// Format as "name@version" used in .pnpm directory layout.
+    /// Scoped packages use `+` instead of `/` to keep a flat directory name.
     pub fn pnpm_dir_name(&self) -> String {
-        format!("{}@{}", self.name, self.version)
+        let safe_name = self.name.replace('/', "+");
+        format!("{}@{}", safe_name, self.version)
     }
 }
 

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use pathdiff::diff_paths;
 use tracing::{debug, info, warn};
 
 use alchemy_core::dependency::PackageId;
@@ -9,6 +10,12 @@ use alchemy_core::resolver::ResolutionResult;
 
 use crate::hardlink;
 use crate::symlink;
+
+/// Compute a relative symlink target: the relative path from the link's parent directory to `target`.
+fn relative_target(target: &Path, link: &Path) -> PathBuf {
+    let link_parent = link.parent().expect("symlink path must have a parent");
+    diff_paths(target, link_parent).unwrap_or_else(|| target.to_path_buf())
+}
 
 /// Create pnpm-style node_modules layout:
 ///
@@ -76,12 +83,13 @@ pub fn link_packages(
                     .join(dep_name);
 
                 if !symlink_path.exists() {
+                    let rel_target = relative_target(&target, &symlink_path);
                     debug!(
                         "Symlinking dep {} → {}",
                         symlink_path.display(),
-                        target.display()
+                        rel_target.display()
                     );
-                    symlink::create_symlink(&target, &symlink_path)?;
+                    symlink::create_symlink(&rel_target, &symlink_path)?;
                 }
             }
         }
@@ -103,7 +111,8 @@ pub fn link_packages(
         }
 
         info!("Linking {} → {}", link_path.display(), target.display());
-        symlink::create_symlink(&target, &link_path)?;
+        let rel_target = relative_target(&target, &link_path);
+        symlink::create_symlink(&rel_target, &link_path)?;
     }
 
     // Step 4: Create node_modules/.bin/ symlinks for packages with bin fields
@@ -140,7 +149,8 @@ pub fn link_packages(
             let link_path = bin_dir.join(&bin_name);
 
             debug!("Bin link {} → {}", link_path.display(), target.display());
-            symlink::create_symlink(&target, &link_path)?;
+            let rel_target = relative_target(&target, &link_path);
+            symlink::create_symlink(&rel_target, &link_path)?;
 
             // Make the target executable on Unix
             #[cfg(unix)]
