@@ -4,12 +4,12 @@ members = [
     "crates/alchemy_core",
     "crates/alchemy_registry",
     "crates/alchemy_store",
-    "crates/alchemy_linker", "crates/alchemy_logo",
+    "crates/alchemy_linker",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "1.0.0"
 edition = "2021"
 
 [workspace.dependencies]
