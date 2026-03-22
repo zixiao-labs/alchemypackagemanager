@@ -1,0 +1,4 @@
+[package]
+name = "alchemy_logo"
+version.workspace = true
+edition.workspace = true

@@ -1,4 +1,10 @@
 pub mod add;
+pub mod ci;
+pub mod import;
 pub mod init;
 pub mod install;
+pub mod link;
+pub mod outdated;
 pub mod remove;
+pub mod run;
+pub mod update;

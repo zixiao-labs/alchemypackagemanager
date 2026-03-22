@@ -18,6 +18,8 @@ pub struct Manifest {
     pub bin: Option<BinField>,
     #[serde(default)]
     pub scripts: BTreeMap<String, String>,
+    #[serde(default)]
+    pub workspaces: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

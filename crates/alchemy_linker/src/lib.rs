@@ -4,4 +4,5 @@ pub mod scripts;
 pub mod symlink;
 
 pub use pnpm_layout::link_packages;
+pub use pnpm_layout::link_workspace_packages;
 pub use scripts::run_lifecycle_scripts;

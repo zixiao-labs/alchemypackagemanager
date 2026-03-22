@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
+use std::path::PathBuf;
 
 /// Unique identifier for a resolved package
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -47,6 +48,32 @@ pub struct Dependency {
     pub kind: DepKind,
 }
 
+/// Metadata about a peer dependency (from peerDependenciesMeta field)
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PeerDepMeta {
+    #[serde(default)]
+    pub optional: bool,
+}
+
+/// Source of a resolved package
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PackageSource {
+    Registry {
+        tarball_url: String,
+        integrity: Option<String>,
+    },
+    Git {
+        url: String,
+        commitish: Option<String>,
+    },
+    Path {
+        path: PathBuf,
+    },
+    Url {
+        url: String,
+    },
+}
+
 /// Resolved package with all metadata needed for installation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedPackage {
@@ -54,5 +81,15 @@ pub struct ResolvedPackage {
     pub tarball_url: String,
     pub integrity: Option<String>,
     pub dependencies: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub peer_dependencies: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub optional_dependencies: BTreeMap<String, String>,
     pub bin: Option<crate::manifest::BinField>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub engines: Option<BTreeMap<String, String>>,
 }

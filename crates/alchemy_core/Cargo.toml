@@ -14,3 +14,7 @@ petgraph = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 async-trait = "0.1"
+glob = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

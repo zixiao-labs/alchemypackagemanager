@@ -3,9 +3,18 @@ use std::collections::HashMap;
 
 use crate::dependency::PackageId;
 
+/// Edge type for dependency graph
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DepEdge {
+    Normal,
+    Dev,
+    Peer,
+    Optional,
+}
+
 /// Dependency graph built during resolution
 pub struct DependencyGraph {
-    pub graph: DiGraph<PackageId, ()>,
+    pub graph: DiGraph<PackageId, DepEdge>,
     pub index_map: HashMap<PackageId, NodeIndex>,
 }
 
@@ -27,11 +36,11 @@ impl DependencyGraph {
         idx
     }
 
-    /// Add a dependency edge from `parent` to `child`.
-    pub fn add_dependency(&mut self, parent: &PackageId, child: &PackageId) {
+    /// Add a dependency edge from `parent` to `child` with a given kind.
+    pub fn add_dependency(&mut self, parent: &PackageId, child: &PackageId, kind: DepEdge) {
         let parent_idx = self.index_map[parent];
         let child_idx = self.index_map[child];
-        self.graph.add_edge(parent_idx, child_idx, ());
+        self.graph.add_edge(parent_idx, child_idx, kind);
     }
 
     /// Get all direct dependencies of a package

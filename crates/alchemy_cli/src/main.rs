@@ -32,6 +32,39 @@ enum Commands {
     },
     /// Initialize a new package.json
     Init,
+    /// Clean install from lockfile (like npm ci)
+    Ci,
+    /// Import lockfile from another package manager
+    Import {
+        /// Source format: npm
+        #[arg(default_value = "npm")]
+        source: String,
+    },
+    /// Link a local package for development
+    Link {
+        /// Package name to link (omit to register current package)
+        package: Option<String>,
+    },
+    /// Remove a local package link
+    Unlink {
+        /// Package name to unlink
+        package: String,
+    },
+    /// Show outdated packages
+    Outdated,
+    /// Update packages to latest versions
+    Update {
+        /// Specific packages to update (omit for all)
+        packages: Vec<String>,
+    },
+    /// Run a script defined in package.json
+    Run {
+        /// Script name to run
+        script: String,
+        /// Additional arguments to pass to the script
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -51,6 +84,18 @@ async fn main() -> anyhow::Result<()> {
         Commands::Add { package, dev } => commands::add::run(&package, dev).await?,
         Commands::Remove { package } => commands::remove::run(&package).await?,
         Commands::Init => commands::init::run()?,
+        Commands::Ci => commands::ci::run().await?,
+        Commands::Import { source } => commands::import::run(&source)?,
+        Commands::Link { package } => commands::link::run(package.as_deref())?,
+        Commands::Unlink { package } => commands::link::unlink(&package)?,
+        Commands::Outdated => commands::outdated::run().await?,
+        Commands::Update { packages } => commands::update::run(&packages).await?,
+        Commands::Run { script, args } => {
+            let code = commands::run::run(&script, &args)?;
+            if code != 0 {
+                std::process::exit(code);
+            }
+        }
     }
 
     Ok(())

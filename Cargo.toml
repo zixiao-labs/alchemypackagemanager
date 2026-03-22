@@ -4,7 +4,7 @@ members = [
     "crates/alchemy_core",
     "crates/alchemy_registry",
     "crates/alchemy_store",
-    "crates/alchemy_linker",
+    "crates/alchemy_linker", "crates/alchemy_logo",
 ]
 resolver = "2"
 
@@ -14,7 +14,7 @@ edition = "2021"
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "blocking"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
@@ -30,3 +30,4 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 petgraph = "0.7"
 futures = "0.3"
+glob = "0.3"

@@ -1,6 +1,11 @@
+pub mod config;
 pub mod dependency;
 pub mod error;
 pub mod graph;
+pub mod import;
 pub mod lockfile;
 pub mod manifest;
+pub mod platform;
 pub mod resolver;
+pub mod specifier;
+pub mod workspace;

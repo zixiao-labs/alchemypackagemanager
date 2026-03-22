@@ -1,3 +1,5 @@
+use alchemy_core::config::AlchemyConfig;
+
 /// Add a package to dependencies and install
 pub async fn run(package: &str, dev: bool) -> anyhow::Result<()> {
     let project_dir = std::env::current_dir()?;
@@ -24,7 +26,12 @@ pub async fn run(package: &str, dev: bool) -> anyhow::Result<()> {
 
     // Resolve "latest" to actual version range
     let version_spec = if version_req == "latest" {
-        let client = alchemy_registry::RegistryClient::new()?;
+        let config = AlchemyConfig::load_from_dir(&project_dir)?;
+        let cache = alchemy_registry::cache::MetadataCache::new(
+            &config.store_dir,
+            std::time::Duration::from_secs(config.metadata_cache_ttl),
+        );
+        let client = alchemy_registry::RegistryClient::new(&config)?.with_cache(cache);
         let metadata = client.fetch_package_metadata(&name).await?;
         let latest = metadata
             .dist_tags
