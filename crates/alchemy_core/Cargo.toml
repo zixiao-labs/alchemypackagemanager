@@ -8,6 +8,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 node-semver = { workspace = true }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 petgraph = { workspace = true }

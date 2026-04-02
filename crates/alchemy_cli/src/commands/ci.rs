@@ -1,13 +1,16 @@
+use std::sync::Arc;
 use std::time::Instant;
 
+use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 
 use alchemy_core::config::AlchemyConfig;
-use alchemy_core::dependency::PackageId;
 use alchemy_core::lockfile::Lockfile;
 use alchemy_core::manifest::Manifest;
 use alchemy_registry::RegistryClient;
 use alchemy_store::ContentStore;
+
+const MAX_PARALLEL_DOWNLOADS: usize = 16;
 
 /// Clean install: install exactly from lockfile, fail if lockfile is missing or stale.
 pub async fn run() -> anyhow::Result<()> {
@@ -46,39 +49,56 @@ pub async fn run() -> anyhow::Result<()> {
 
     println!("Installing {} packages...", resolution.packages.len());
 
-    // 6. Download missing packages to content store
+    // 6. Download missing packages to content store (parallel)
     let config = AlchemyConfig::load_from_dir(&project_dir)?;
-    let store = ContentStore::new();
-    let registry = RegistryClient::new(&config)?;
+    let store = Arc::new(ContentStore::new()?);
+    let registry = Arc::new(RegistryClient::new(&config)?);
 
-    let to_download: Vec<&PackageId> = resolution
+    let to_download: Vec<_> = resolution
         .packages
-        .keys()
-        .filter(|id| !store.has_package(&id.name, &id.version))
+        .iter()
+        .filter(|(id, pkg)| pkg.source_path.is_none() && !store.has_package(&id.name, &id.version))
         .collect();
 
     if !to_download.is_empty() {
         let download_bar = ProgressBar::new(to_download.len() as u64);
         download_bar.set_style(
             ProgressStyle::with_template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-                .unwrap()
+                .unwrap_or_else(|_| ProgressStyle::default_bar())
                 .progress_chars("█▓░"),
         );
 
-        for id in &to_download {
-            let pkg = &resolution.packages[*id];
-            download_bar.set_message(format!("{}", id));
-
-            let temp_dir = tempfile::tempdir()?;
-            registry
-                .download_and_extract(id, &pkg.tarball_url, temp_dir.path())
-                .await?;
-
-            store.store_package(&id.name, &id.version, temp_dir.path())?;
-            download_bar.inc(1);
-        }
+        let results: Vec<anyhow::Result<()>> = futures::stream::iter(to_download)
+            .map(|(id, pkg)| {
+                let registry = Arc::clone(&registry);
+                let store = Arc::clone(&store);
+                let id = id.clone();
+                let tarball_url = pkg.tarball_url.clone();
+                let integrity = pkg.integrity.clone();
+                async move {
+                    let temp_dir = tempfile::tempdir()?;
+                    registry
+                        .download_and_extract(
+                            &id,
+                            &tarball_url,
+                            integrity.as_deref(),
+                            temp_dir.path(),
+                        )
+                        .await?;
+                    store.store_package(&id.name, &id.version, temp_dir.path())?;
+                    anyhow::Ok(())
+                }
+            })
+            .buffer_unordered(MAX_PARALLEL_DOWNLOADS)
+            .inspect(|_| download_bar.inc(1))
+            .collect()
+            .await;
 
         download_bar.finish_with_message("Downloads complete");
+
+        for r in results {
+            r?;
+        }
     }
 
     // 7. Link node_modules
@@ -94,7 +114,7 @@ pub async fn run() -> anyhow::Result<()> {
         let script_progress = ProgressBar::new_spinner();
         script_progress.set_style(
             ProgressStyle::with_template("{spinner:.green} {msg}")
-                .unwrap()
+                .unwrap_or_else(|_| ProgressStyle::default_spinner())
                 .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
         );
         script_progress.set_message("Running lifecycle scripts...");

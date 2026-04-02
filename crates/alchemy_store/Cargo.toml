@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+alchemy_core = { path = "../alchemy_core" }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }

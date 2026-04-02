@@ -80,6 +80,10 @@ pub struct ResolvedPackage {
     pub id: PackageId,
     pub tarball_url: String,
     pub integrity: Option<String>,
+    /// For `file:` dependencies, the absolute path to the local package directory.
+    /// When set, the linker copies/hardlinks from this path instead of the content store.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_path: Option<PathBuf>,
     pub dependencies: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub peer_dependencies: BTreeMap<String, String>,
