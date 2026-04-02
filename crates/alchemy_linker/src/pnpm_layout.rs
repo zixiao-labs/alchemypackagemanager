@@ -44,28 +44,37 @@ pub fn link_packages(
     std::fs::create_dir_all(&pnpm_dir)?;
 
     // Step 1: Create .pnpm virtual store — hardlink each package from the global store
-    for id in resolution.packages.keys() {
+    // (or from source_path for file:/git:/url: deps)
+    for (id, pkg) in &resolution.packages {
         let pkg_pnpm_dir = pnpm_dir
             .join(id.pnpm_dir_name())
             .join("node_modules")
             .join(&id.name);
 
-        let store_pkg_dir = store_package_dir(store_dir, &id.name, &id.version);
-
-        if !store_pkg_dir.exists() {
-            anyhow::bail!(
-                "Package {} not found in store at {}",
-                id,
-                store_pkg_dir.display()
-            );
-        }
+        let src_dir = if let Some(ref sp) = pkg.source_path {
+            // file: / git: / url: dependency — link directly from source
+            if !sp.exists() {
+                anyhow::bail!("Source path for {} not found at {}", id, sp.display());
+            }
+            sp.clone()
+        } else {
+            let store_pkg_dir = store_package_dir(store_dir, &id.name, &id.version);
+            if !store_pkg_dir.exists() {
+                anyhow::bail!(
+                    "Package {} not found in store at {}",
+                    id,
+                    store_pkg_dir.display()
+                );
+            }
+            store_pkg_dir
+        };
 
         debug!(
             "Hardlinking {} → {}",
-            store_pkg_dir.display(),
+            src_dir.display(),
             pkg_pnpm_dir.display()
         );
-        hardlink::hardlink_dir(&store_pkg_dir, &pkg_pnpm_dir)?;
+        hardlink::hardlink_dir(&src_dir, &pkg_pnpm_dir)?;
     }
 
     // Step 2: Create symlinks for transitive dependencies within .pnpm

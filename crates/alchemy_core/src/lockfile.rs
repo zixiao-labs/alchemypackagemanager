@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::dependency::{PackageId, ResolvedPackage};
 use crate::error::{AlchemyError, AlchemyResult};
@@ -107,13 +107,28 @@ impl Lockfile {
         // Build packages
         for (id, pkg) in &resolution.packages {
             let key = format!("/{}@{}", id.name, id.version);
-            let lock_pkg = LockfilePackage {
-                resolution: LockfileResolution {
+            let resolution = if let Some(ref path) = pkg.source_path {
+                // file: local dependency — store the directory path
+                LockfileResolution {
+                    integrity: None,
+                    tarball: None,
+                    git: None,
+                    directory: Some(path.to_string_lossy().into_owned()),
+                }
+            } else {
+                LockfileResolution {
                     integrity: pkg.integrity.clone(),
-                    tarball: Some(pkg.tarball_url.clone()),
+                    tarball: if pkg.tarball_url.is_empty() {
+                        None
+                    } else {
+                        Some(pkg.tarball_url.clone())
+                    },
                     git: None,
                     directory: None,
-                },
+                }
+            };
+            let lock_pkg = LockfilePackage {
+                resolution,
                 dependencies: pkg.dependencies.clone(),
                 peer_dependencies: pkg.peer_dependencies.clone(),
                 optional_dependencies: pkg.optional_dependencies.clone(),
@@ -224,10 +239,13 @@ impl Lockfile {
             let id = PackageId::new(name, version);
             graph.add_package(id.clone());
 
+            let source_path = lock_pkg.resolution.directory.as_deref().map(PathBuf::from);
+
             let resolved = ResolvedPackage {
                 id: id.clone(),
                 tarball_url: lock_pkg.resolution.tarball.clone().unwrap_or_default(),
                 integrity: lock_pkg.resolution.integrity.clone(),
+                source_path,
                 dependencies: lock_pkg.dependencies.clone(),
                 peer_dependencies: lock_pkg.peer_dependencies.clone(),
                 optional_dependencies: lock_pkg.optional_dependencies.clone(),
@@ -242,8 +260,16 @@ impl Lockfile {
 
         // Build graph edges
         for (key, lock_pkg) in &self.packages {
-            let stripped = key.strip_prefix('/').unwrap();
-            let at_pos = stripped.rfind('@').unwrap();
+            let stripped = key.strip_prefix('/').ok_or_else(|| {
+                AlchemyError::Other(format!(
+                    "invalid lockfile package key (must start with '/'): {key}"
+                ))
+            })?;
+            let at_pos = stripped.rfind('@').ok_or_else(|| {
+                AlchemyError::Other(format!(
+                    "invalid lockfile package key (missing @version): {key}"
+                ))
+            })?;
             let parent = PackageId::new(&stripped[..at_pos], &stripped[at_pos + 1..]);
 
             for (dep_name, dep_ver) in &lock_pkg.dependencies {
@@ -291,5 +317,168 @@ impl Lockfile {
 impl Default for Lockfile {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dependency::ResolvedPackage;
+    use crate::graph::DependencyGraph;
+    use crate::resolver::ResolutionResult;
+    use std::collections::HashMap;
+
+    fn make_resolution(packages: Vec<(&str, &str, &str)>) -> ResolutionResult {
+        let mut pkgs: HashMap<PackageId, ResolvedPackage> = HashMap::new();
+        let mut direct_deps = Vec::new();
+
+        for (name, version, tarball) in &packages {
+            let id = PackageId::new(*name, *version);
+            pkgs.insert(
+                id.clone(),
+                ResolvedPackage {
+                    id: id.clone(),
+                    tarball_url: tarball.to_string(),
+                    integrity: Some(format!("sha512-fake-{}", name)),
+                    source_path: None,
+                    dependencies: BTreeMap::new(),
+                    peer_dependencies: BTreeMap::new(),
+                    optional_dependencies: BTreeMap::new(),
+                    bin: None,
+                    os: None,
+                    cpu: None,
+                    engines: None,
+                },
+            );
+            direct_deps.push(id);
+        }
+
+        ResolutionResult {
+            graph: DependencyGraph::new(),
+            packages: pkgs,
+            direct_deps,
+            peer_warnings: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn test_lockfile_roundtrip() {
+        let resolution = make_resolution(vec![
+            (
+                "express",
+                "4.18.0",
+                "https://example.com/express-4.18.0.tgz",
+            ),
+            (
+                "lodash",
+                "4.17.21",
+                "https://example.com/lodash-4.17.21.tgz",
+            ),
+        ]);
+
+        let root_deps: BTreeMap<String, String> = [
+            ("express".to_string(), "^4.17.0".to_string()),
+            ("lodash".to_string(), "^4.0.0".to_string()),
+        ]
+        .into();
+        let dev_deps: BTreeMap<String, String> = BTreeMap::new();
+
+        let lockfile = Lockfile::from_resolution(&resolution, &root_deps, &dev_deps);
+        assert_eq!(lockfile.packages.len(), 2);
+        assert!(lockfile.packages.contains_key("/express@4.18.0"));
+        assert!(lockfile.packages.contains_key("/lodash@4.17.21"));
+
+        // Roundtrip through YAML
+        let yaml = serde_yaml::to_string(&lockfile).unwrap();
+        let restored: Lockfile = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(restored.packages.len(), 2);
+
+        // Reconstruct resolution result
+        let result = restored.to_resolution_result().unwrap();
+        assert_eq!(result.packages.len(), 2);
+        assert!(result
+            .packages
+            .keys()
+            .any(|id| id.name == "express" && id.version == "4.18.0"));
+    }
+
+    #[test]
+    fn test_lockfile_preserves_integrity() {
+        let resolution =
+            make_resolution(vec![("pkg", "1.0.0", "https://example.com/pkg-1.0.0.tgz")]);
+        let root_deps: BTreeMap<String, String> =
+            [("pkg".to_string(), "^1.0.0".to_string())].into();
+        let lockfile = Lockfile::from_resolution(&resolution, &root_deps, &BTreeMap::new());
+
+        let pkg_entry = lockfile.packages.get("/pkg@1.0.0").unwrap();
+        assert_eq!(
+            pkg_entry.resolution.integrity.as_deref(),
+            Some("sha512-fake-pkg")
+        );
+    }
+
+    #[test]
+    fn test_malformed_key_returns_error_not_panic() {
+        let mut lockfile = Lockfile::new();
+        // Insert a package with a key missing the '/' prefix
+        lockfile.packages.insert(
+            "no-slash@1.0.0".to_string(),
+            LockfilePackage {
+                resolution: LockfileResolution {
+                    integrity: None,
+                    tarball: Some("https://example.com/pkg.tgz".to_string()),
+                    git: None,
+                    directory: None,
+                },
+                dependencies: BTreeMap::new(),
+                peer_dependencies: BTreeMap::new(),
+                optional_dependencies: BTreeMap::new(),
+            },
+        );
+        // Also add a valid importer so the first parse loop passes
+        lockfile.importers.insert(
+            ".".to_string(),
+            LockfileImporter {
+                dependencies: BTreeMap::new(),
+                dev_dependencies: BTreeMap::new(),
+            },
+        );
+
+        let result = lockfile.to_resolution_result();
+        assert!(
+            result.is_err(),
+            "malformed lockfile key must return Err, not panic"
+        );
+        let err_msg = result.err().unwrap().to_string();
+        assert!(
+            err_msg.contains("no-slash@1.0.0") || err_msg.contains("invalid lockfile"),
+            "error message should mention the bad key"
+        );
+    }
+
+    #[test]
+    fn test_validate_against_manifest_passes_when_in_sync() {
+        let resolution = make_resolution(vec![("lodash", "4.17.21", "url")]);
+        let root_deps: BTreeMap<String, String> =
+            [("lodash".to_string(), "^4.0.0".to_string())].into();
+        let lockfile = Lockfile::from_resolution(&resolution, &root_deps, &BTreeMap::new());
+        // Validation should succeed when specifiers match
+        assert!(lockfile
+            .validate_against_manifest(&root_deps, &BTreeMap::new())
+            .is_ok());
+    }
+
+    #[test]
+    fn test_validate_against_manifest_fails_on_drift() {
+        let resolution = make_resolution(vec![("lodash", "4.17.21", "url")]);
+        let old_deps: BTreeMap<String, String> =
+            [("lodash".to_string(), "^4.0.0".to_string())].into();
+        let lockfile = Lockfile::from_resolution(&resolution, &old_deps, &BTreeMap::new());
+        // Now manifest wants a different specifier (e.g. ^5.0.0)
+        let new_deps: BTreeMap<String, String> =
+            [("lodash".to_string(), "^5.0.0".to_string())].into();
+        assert!(lockfile
+            .validate_against_manifest(&new_deps, &BTreeMap::new())
+            .is_err());
     }
 }

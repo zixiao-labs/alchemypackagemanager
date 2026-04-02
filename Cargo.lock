@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_cli"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "alchemy_core",
  "alchemy_linker",
@@ -27,6 +27,7 @@ dependencies = [
  "alchemy_store",
  "anyhow",
  "clap",
+ "futures",
  "indicatif",
  "node-semver",
  "serde_json",
@@ -38,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_core"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -48,6 +49,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sha2",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -56,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "alchemy_linker"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "alchemy_core",
  "anyhow",
@@ -69,12 +71,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "alchemy_logo"
-version = "0.2.0"
-
-[[package]]
 name = "alchemy_registry"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "alchemy_core",
  "anyhow",
@@ -94,8 +92,9 @@ dependencies = [
 
 [[package]]
 name = "alchemy_store"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
+ "alchemy_core",
  "anyhow",
  "sha2",
  "thiserror 2.0.18",

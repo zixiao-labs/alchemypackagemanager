@@ -20,7 +20,7 @@ pub struct AlchemyConfig {
 
 impl Default for AlchemyConfig {
     fn default() -> Self {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let home = home_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
         Self {
             default_registry: "https://registry.npmjs.org".to_string(),
             scoped_registries: BTreeMap::new(),
@@ -30,10 +30,18 @@ impl Default for AlchemyConfig {
             strict_ssl: true,
             auto_install_peers: true,
             ignore_scripts: false,
-            store_dir: PathBuf::from(home).join(".alchemy-store"),
+            store_dir: home.join(".alchemy-store"),
             metadata_cache_ttl: 300,
         }
     }
+}
+
+pub(crate) fn home_dir() -> crate::error::AlchemyResult<PathBuf> {
+    std::env::var("HOME").map(PathBuf::from).map_err(|_| {
+        crate::error::AlchemyError::Other(
+            "HOME environment variable is not set; cannot determine store directory".to_string(),
+        )
+    })
 }
 
 impl AlchemyConfig {

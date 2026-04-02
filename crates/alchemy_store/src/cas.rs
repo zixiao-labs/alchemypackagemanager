@@ -10,9 +10,9 @@ pub struct ContentStore {
 }
 
 impl ContentStore {
-    pub fn new() -> Self {
-        let base = dirs_home().join(".alchemy-store");
-        Self { base_dir: base }
+    pub fn new() -> anyhow::Result<Self> {
+        let base = dirs_home()?.join(".alchemy-store");
+        Ok(Self { base_dir: base })
     }
 
     pub fn with_base(base_dir: PathBuf) -> Self {
@@ -48,8 +48,15 @@ impl ContentStore {
             fs::create_dir_all(parent)?;
         }
 
-        // Copy the extracted directory into the store
-        copy_dir_recursive(extracted_dir, &dest)?;
+        // Write to a temporary directory first, then atomically rename to the final path.
+        // This prevents partial writes from being seen as complete by concurrent processes.
+        let tmp_dest = dest.with_extension("_tmp");
+        // Clean up any leftover temp dir from a previous interrupted install
+        if tmp_dest.exists() {
+            fs::remove_dir_all(&tmp_dest)?;
+        }
+        copy_dir_recursive(extracted_dir, &tmp_dest)?;
+        fs::rename(&tmp_dest, &dest)?;
 
         debug!("Stored {name}@{version} in {}", dest.display());
         Ok(dest)
@@ -63,7 +70,7 @@ impl ContentStore {
 
 impl Default for ContentStore {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("HOME environment variable must be set")
     }
 }
 
@@ -103,8 +110,8 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn dirs_home() -> PathBuf {
-    std::env::var("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/tmp"))
+fn dirs_home() -> anyhow::Result<PathBuf> {
+    std::env::var("HOME").map(PathBuf::from).map_err(|_| {
+        anyhow::anyhow!("HOME environment variable is not set; cannot determine store directory")
+    })
 }
